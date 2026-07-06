@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-Based Space Debris Tracking & Collision Avoidance Dashboard</title>
+
+  <!-- Production CDN Dependencies (Loaded securely via HTTPS) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+           GLOBAL VARIABLES & PROFESSIONAL COLOR SCHEME (AEROSPACE DARK SPEC)
+           ========================================================================== */
+    :root {
+      --bg-main: #030712;
+      --panel-glass: rgba(15, 23, 42, 0.75);
+      --panel-border: rgba(0, 212, 255, 0.2);
+      --panel-border-glow: rgba(0, 212, 255, 0.4);
+
+      --color-primary: #00D4FF;
+      --color-secondary: #3B82F6;
+      --color-success: #22C55E;
+      --color-danger: #EF4444;
+      --color-warning: #F59E0B;
+      --color-text-main: #F8FAFC;
+      --color-text-muted: #94A3B8;
+
+      --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--color-text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Utilities */
+    .text-primary {
+      color: var(--color-primary);
+    }
+
+    .text-secondary {
+      color: var(--color-secondary);
+    }
+
+    .text-success {
+      color: var(--color-success);
+    }
+
+    .text-warning {
+      color: var(--color-warning);
+    }
+
+    .text-danger {
+      color: var(--color-danger);
+    }
+
+    .font-bold {
+      font-weight: 700;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* ==========================================================================
+           LOADING BAR & PRE-BOOT COMPONENT
+           ========================================================================== */
+    .loading-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #0B1528 0%, #030712 100%);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loader-content {
+      width: 550px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .glow-text-primary {
+      font-size: 2rem;
+      letter-spacing: 4px;
+      color: var(--color-primary);
+      text-shadow: 0 0 15px var(--panel-border-glow);
+    }
+
+    .sub-glow {
+      font-size: 0.85rem;
+      letter-spacing: 2px;
+      color: var(--color-text-muted);
+    }
+
+    .loader-terminal {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--panel-border);
+      border-radius: 4px;
+      padding: 1rem;
+      height: 100px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      text-align: left;
+      overflow-y: hidden;
+      color: var(--color-text-main);
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 212, 255, 0.1);
+    }
+
+    .progress-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-secondary), var(--color-primary));
+      box-shadow: 0 0 10px var(--color-primary);
+      transition: width 0.1s linear;
+    }
+
+    .percentage-display {
+      font-family: var(--font-mono);
+      color: var(--color-primary);
+      font-size: 1.2rem;
+    }
+
+    /* ==========================================================================
+           MISSION CONTROL DASHBOARD GRID ARCHITECTURE
+           ========================================================================== */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 350px 1fr 380px;
+      grid-template-rows: 70px 100px 1fr 280px;
+      grid-template-areas:
+        "header header header"
+        "metrics metrics metrics"
+        "left center right"
+        "bottom bottom bottom";
+      gap: 12px;
+      padding: 12px;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Panels Common Layout Styles */
+    .panel-glass {
+      background: var(--panel-glass);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      box-shadow: inset 0 0 12px rgba(0, 212, 255, 0.05), 0 4px 20px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .panel-glass:hover {
+      border-color: var(--panel-border-glow);
+      box-shadow: inset 0 0 16px rgba(0, 212, 255, 0.1), 0 8px 24px rgba(0, 0, 0, 0.6);
+    }
+
+    .flex-column {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .relative-container {
+      position: relative;
+    }
+
+    .gap-md {
+      gap: 1rem;
+    }
+
+    /* 1. Header Band Elements */
+    .header-band {
+      grid-area: header;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--panel-border);
+      padding: 0 10px;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-block h1 {
+      font-size: 1.4rem;
+      letter-spacing: 2px;
+      color: white;
+    }
+
+    .brand-block .subtitle {
+      font-size: 0.75rem;
+      color: var(--color-primary);
+      letter-spacing: 1px;
+    }
+
+    .system-telemetry-strip {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .telemetry-node {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .telemetry-node .label {
+      font-size: 0.65rem;
+      color: var(--color-text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .telemetry-node .value {
+      font-size: 0.9rem;
+      font-family: var(--font-mono);
+      font-weight: bold;
+    }
+
+    .status-indicator {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+    }
+
+    .status-indicator.success {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: var(--color-success);
+      color: var(--color-success);
+    }
+
+    .status-indicator.danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--color-danger);
+      color: var(--color-danger);
+    }
+
+    /* 2. Metrics Strip Block Elements */
+    .metrics-strip {
+      grid-area: metrics;
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+
+    .metric-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 15px;
+    }
+
+    .card-label {
+      font-size: 0.7rem;
+      color: var(--color-text-muted);
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .card-value {
+      font-size: 1.6rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    /* 3. Panel Internal Components */
+    .panel-header {
+      background: rgba(0, 212, 255, 0.05);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--color-text-main);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-subheader {
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: var(--color-text-muted);
+      border-left: 2px solid var(--color-primary);
+      padding-left: 6px;
+      margin-bottom: 8px;
+    }
+
+    .panel-body {
+      padding: 12px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* Left Monitor Layout Scalar Display Table */
+    .panel-left {
+      grid-area: left;
+    }
+
+    .scalar-table {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      font-size: 0.85rem;
+    }
+
+    .data-row .lbl {
+      color: var(--color-text-muted);
+    }
+
+    .data-row .val {
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    .status-tag {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid var(--color-success);
+      color: var(--color-success);
+      font-size: 0.7rem;
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+
+    /* Center Panel (Three.js Spatial Engine Display Boundary) */
+    .panel-center {
+      grid-area: center;
+    }
+
+    .spatial-header {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .view-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .control-btn {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--panel-border);
+      color: var(--color-text-main);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .control-btn.active,
+    .control-btn:hover {
+      background: var(--color-primary);
+      color: #000;
+      border-color: var(--color-primary);
+    }
+
+    .canvas-viewport {
+      width: 100%;
+      flex: 1;
+      position: relative;
+      background: #000207;
+      overflow: hidden;
+      border-radius: 0 0 5px 5px;
+    }
+
+    /* Right Panel Layout Predictive Inference Parameters */
+    .panel-right {
+      grid-area: right;
+    }
+
+    .engine-status-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      padding: 8px 12px;
+    }
+
+    /* Circular Inference Risk Gauge Core UI Elements */
+    .risk-gauge-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 15px 0;
+      background: rgba(239, 68, 68, 0.03);
+      border: 1px solid rgba(239, 68, 68, 0.1);
+      border-radius: 6px;
+      gap: 10px;
+    }
+
+    .circular-gauge-wrapper {
+      position: relative;
+      width: 130px;
+      height: 130px;
+    }
+
+    .gauge-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .gauge-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.05);
+      stroke-width: 6;
+    }
+
+    .gauge-fill {
+      fill: none;
+      stroke: var(--color-danger);
+      stroke-width: 6;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .gauge-inner-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+
+    .gauge-inner-text .percentage-val {
+      font-family: var(--font-mono);
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .gauge-inner-text .label-sub {
+      font-size: 0.55rem;
+      color: var(--color-text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .maneuver-recommendation-box {
+      background: rgba(245, 158, 11, 0.03);
+      border: 1px solid rgba(245, 158, 11, 0.15);
+      padding: 12px;
+      border-radius: 4px;
+    }
+
+    /* 4. Bottom Area: Dashboard Analytics & Logging Console Substructures */
+    .panel-bottom {
+      grid-area: bottom;
+    }
+
+    .grid-2-col {
+      display: grid;
+      grid-template-columns: 1fr 450px;
+      gap: 12px;
+    }
+
+    .analytics-charts-subgrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100%;
+    }
+
+    .chart-viewport {
+      width: 100%;
+      height: 100%;
+      padding: 4px;
+    }
+
+    /* Live Telemetry Scrolling Log Terminal Frame */
+    .live-logger-container {
+      height: 100%;
+      background: #020613 !important;
+    }
+
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--color-success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--color-success);
+      animation: pulseGlow 2s infinite;
+    }
+
+    .terminal-body {
+      flex: 1;
+      padding: 10px 14px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: #000208;
+      color: #A7F3D0;
+    }
+
+    .log-line {
+      line-height: 1.3;
+      border-left: 2px solid rgba(255, 255, 255, 0.1);
+      padding-left: 6px;
+    }
+
+    .log-line.warn {
+      color: var(--color-warning);
+      border-left-color: var(--color-warning);
+    }
+
+    .log-line.danger {
+      color: var(--color-danger);
+      border-left-color: var(--color-danger);
+      font-weight: bold;
+    }
+
+    .log-time {
+      color: var(--color-text-muted);
+      margin-right: 6px;
+    }
+
+    /* ==========================================================================
+           DYNAMIC KEYFRAME ANIMATIONS DECK
+           ========================================================================== */
+    @keyframes pulseGlow {
+      0% {
+        transform: scale(0.95);
+        opacity: 0.5;
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+      }
+
+      70% {
+        transform: scale(1);
+        opacity: 1;
+        box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+      }
+
+      100% {
+        transform: scale(0.95);
+        opacity: 0.5;
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+      }
+    }
+
+    .alert-pulse-border {
+      animation: alertBorder 2.5s infinite alternate;
+    }
+
+    @keyframes alertBorder {
+      0% {
+        border-color: rgba(239, 68, 68, 0.2);
+      }
+
+      100% {
+        border-color: rgba(239, 68, 68, 0.7);
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
+      }
+    }
+
+    /* ==========================================================================
+           RESPONSIVE LAYOUT RESPONSIVENESS OVERRIDES
+           ========================================================================== */
+    @media (max-width: 1400px) {
+      .dashboard-grid {
+        grid-template-columns: 300px 1fr 320px;
+        grid-template-rows: 70px auto 1fr 260px;
+      }
+
+      .metrics-strip {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      body {
+        overflow-y: auto;
+      }
+
+      .dashboard-grid {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        overflow-y: auto;
+      }
+
+      .canvas-viewport {
+        height: 450px;
+      }
+
+      .grid-2-col {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body class="dark-theme">
+
+  <!-- ========================================== -->
+  <!-- 1. HIGH-FIDELITY LOADING SCREEN & BOOTSTRAP -->
+  <!-- ========================================== -->
+  <div id="loading-screen" class="loading-container">
+    <div class="space-bg-effect"></div>
+    <div class="loader-content">
+      <h1 class="glow-text-primary">AI SPACE SITUATIONAL AWARENESS</h1>
+      <h2 class="sub-glow">MISSION CONTROL CENTER // ORBITAL INTERCEPT</h2>
+      <div class="loader-terminal">
+        <div id="loader-log-stream">Initializing core aerospace stack...</div>
+      </div>
+      <div class="progress-bar-container">
+        <div id="loader-progress" class="progress-bar-fill"></div>
+      </div>
+      <div id="loader-percentage" class="percentage-display">00%</div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 2. MAIN MISSION CONTROL INSTRUMENT PANEL   -->
+  <!-- ========================================== -->
+  <div id="dashboard-root" class="dashboard-grid hidden">
+
+    <!-- HEADER / NAVIGATION BAND -->
+    <header class="header-band">
+      <div class="brand-block">
+        <span class="pulse-icon">🚀</span>
+        <div>
+          <h1>AI SPACE SITUATIONAL AWARENESS</h1>
+          <p class="subtitle">ORBITAL SAFETY &amp; COLLISION AVOIDANCE OPERATIONS</p>
+        </div>
+      </div>
+
+      <div class="system-telemetry-strip">
+        <div class="telemetry-node">
+          <span class="label">SYS_CLK (UTC)</span>
+          <span id="utc-clock" class="value text-primary">00:00:00 UTC</span>
+        </div>
+        <div class="telemetry-node">
+          <span class="label">NET_CONN</span>
+          <span id="status-conn" class="status-indicator success">CONNECTED</span>
+        </div>
+        <div class="telemetry-node">
+          <span class="label">AI_ENG_LSTM</span>
+          <span id="status-ai" class="status-indicator success">NOMINAL</span>
+        </div>
+        <div class="telemetry-node">
+          <span class="label">TELEMETRY_API</span>
+          <span id="status-api" class="status-indicator success">ACTIVE</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- HIGH-LEVEL COUNTER METRICS -->
+    <section class="metrics-strip">
+      <div class="metric-card panel-glass">
+        <div class="card-label">ACTIVE SATELLITES</div>
+        <div id="metric-satellites" class="card-value text-primary">00,000</div>
+      </div>
+      <div class="metric-card panel-glass">
+        <div class="card-label">TRACKED DEBRIS</div>
+        <div id="metric-debris" class="card-value text-warning">00,000</div>
+      </div>
+      <div class="metric-card panel-glass alert-pulse-border">
+        <div class="card-label">HIGH RISK OBJECTS</div>
+        <div id="metric-high-risk" class="card-value text-danger">00</div>
+      </div>
+      <div class="metric-card panel-glass">
+        <div class="card-label">TODAY'S CONJUNCTIONS</div>
+        <div id="metric-predictions" class="card-value text-secondary">000</div>
+      </div>
+      <div class="metric-card panel-glass">
+        <div class="card-label">AI MODEL ACCURACY</div>
+        <div id="metric-accuracy" class="card-value text-success">00.00%</div>
+      </div>
+      <div class="metric-card panel-glass">
+        <div class="card-label">AVG COLLISION PROB</div>
+        <div id="metric-avg-prob" class="card-value text-danger">0.0000</div>
+      </div>
+    </section>
+
+    <!-- LEFT PANEL: ASSET UNDER OBSERVATION -->
+    <aside class="panel-left panel-glass flex-column">
+      <div class="panel-header">🛰️ TARGET ASSET MONITOR (PRIORITY_1)</div>
+      <div class="panel-body scalar-table">
+        <div class="data-row"><span class="lbl">Asset Name</span><span id="sat-name" class="val text-primary">—</span>
+        </div>
+        <div class="data-row"><span class="lbl">NORAD ID</span><span id="sat-norad" class="val">—</span></div>
+        <div class="data-row"><span class="lbl">Origin / Country</span><span id="sat-country" class="val">—</span></div>
+        <div class="data-row"><span class="lbl">Launch Epoch</span><span id="sat-launch" class="val">—</span></div>
+        <div class="data-row"><span class="lbl">Orbit Regime</span><span id="sat-regime"
+            class="val text-secondary">—</span></div>
+        <div class="data-row"><span class="lbl">Apogee / Perigee</span><span id="sat-altitude" class="val">—</span>
+        </div>
+        <div class="data-row"><span class="lbl">Orbital Velocity</span><span id="sat-velocity"
+            class="val text-success">—</span></div>
+        <div class="data-row"><span class="lbl">Inclination</span><span id="sat-inc" class="val">—</span></div>
+        <div class="data-row"><span class="lbl">Nodal Period</span><span id="sat-period" class="val">—</span></div>
+        <div class="data-row"><span class="lbl">Operational State</span><span id="sat-status"
+            class="val status-tag">—</span></div>
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL: THREE.JS INTERACTIVE TRACKING COCKPIT -->
+    <main class="panel-center panel-glass flex-column relative-container">
+      <div class="panel-header spatial-header">
+        <span>🌍 REAL-TIME SPATIAL SITUATIONAL AWARENESS (3D)</span>
+        <div class="view-controls">
+          <button id="btn-reset-cam" class="control-btn">RESET CAM</button>
+          <button id="btn-toggle-orbits" class="control-btn active">ORBITS ON</button>
+        </div>
+      </div>
+      <div id="canvas-wrapper" class="canvas-viewport">
+        <!-- Three.js Context Appends Here -->
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL: LSTM-PREDICTION ENGINE & RISK EVALUATION -->
+    <aside class="panel-right panel-glass flex-column">
+      <div class="panel-header">🧠 AI INFERENCE &amp; PREDICTION CORE</div>
+      <div class="panel-body flex-column gap-md">
+        <div class="engine-status-box">
+          <div class="data-row"><span class="lbl">Active Model:</span><span class="val text-primary font-bold">LSTM-RNN
+              Multi-State</span></div>
+          <div class="data-row"><span class="lbl">Compute Engine:</span><span class="val text-success">CUDA
+              ON-LINE</span></div>
+          <div class="data-row"><span class="lbl">Inference Latency:</span><span id="ai-latency"
+              class="val">14.2ms</span></div>
+        </div>
+
+        <!-- CRITICAL RISK GAUGE AREA -->
+        <div class="risk-gauge-container">
+          <div class="circular-gauge-wrapper">
+            <svg viewBox="0 0 100 100" class="gauge-svg">
+              <circle class="gauge-bg" cx="50" cy="50" r="40"></circle>
+              <circle id="gauge-fill" class="gauge-fill" cx="50" cy="50" r="40" stroke-dasharray="251.2"
+                stroke-dashoffset="251.2"></circle>
+            </svg>
+            <div class="gauge-inner-text">
+              <span id="gauge-val-percent" class="percentage-val text-danger">0.00%</span>
+              <span class="label-sub">COLLISION PROB</span>
+            </div>
+          </div>
+          <div id="risk-severity-badge" class="risk-badge status-indicator danger">CRITICAL THREAT</div>
+        </div>
+
+        <!-- MITIGATION PROTOCOLS -->
+        <div class="maneuver-recommendation-box">
+          <div class="panel-subheader">🛡️ AI-GENERATED MANEUVER PROTOCOL</div>
+          <div class="data-row"><span class="lbl">Recommended Action</span><span id="maneuver-action"
+              class="val text-warning font-bold">PROGRADE BURN</span></div>
+          <div class="data-row"><span class="lbl">Target Delta-V</span><span id="maneuver-dv" class="val">1.42
+              m/s</span></div>
+          <div class="data-row"><span class="lbl">Estimated Fuel Cost</span><span id="maneuver-fuel" class="val">2.14
+              kg</span></div>
+          <div class="data-row"><span class="lbl">Post-Maneuver Risk</span><span id="maneuver-post-risk"
+              class="val text-success">&lt; 1e-6</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- BOTTOM PANEL: ANALYTICS & EVENT LOG STREAM -->
+    <footer class="panel-bottom grid-2-col">
+      <!-- DYNAMIC CHARTS GRID -->
+      <div class="analytics-charts-subgrid panel-glass">
+        <div id="chart-density" class="chart-viewport"></div>
+        <div id="chart-probability" class="chart-viewport"></div>
+      </div>
+
+      <!-- LIVE EVENT BUS STREAM -->
+      <div class="live-logger-container panel-glass flex-column">
+        <div class="panel-header log-header">
+          <span>📋 LIVE TELEMETRY LOG BUS</span>
+          <span class="pulse-dot"></span>
+        </div>
+        <div id="terminal-stream" class="terminal-body">
+          <!-- Logs injection target -->
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 3. MAIN DASHBOARD LOGIC EXECUTION SCRIPTS  -->
+  <!-- ========================================== -->
+  <script>
+    // Global App Reactive State Memory Definition
+    const SystemState = {
+      isBootstrapped: false,
+      activeAsset: null,
+      metrics: {
+        satellites: 8432,
+        debris: 24911,
+        highRisk: 14,
+        predictionsToday: 1342,
+        aiAccuracy: 99.42,
+        avgProb: 0.0034
+      },
+      uiState: {
+        orbitsVisible: true
+      }
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // 1. Fire execution flow of System Bootstrapping Sequence
+      runAerospaceBootLoader();
+
+      // 2. Initialize System System Clock Pipeline Loop
+      startSystemClockLoop();
+    });
+
+    /**
+     * High-Fidelity Simulation of Aerospace Ground System Initialization Sequence
+     */
+    function runAerospaceBootLoader() {
+      const logLines = [
+        "Initializing core orbital dynamics compute stack...",
+        "Connecting to NORAD / Celestrak Unified API endpoints...",
+        "Loading deep space tracking telemetry catalogs...",
+        "Validating GPU hardware hooks for LSTM tensor matrix calculation...",
+        "Caching historical tracking datasets (Ephemeris Epocs)...",
+        "Loading LSTM multi-step predictive collision logic...",
+        "Injecting dynamic vector maps into ThreeJS 3D viewports...",
+        "System initialization complete. Handshaking operational control..."
+      ];
+
+      const logContainer = document.getElementById("loader-log-stream");
+      const progressFill = document.getElementById("loader-progress");
+      const percentageText = document.getElementById("loader-percentage");
+
+      let currentStep = 0;
+      let totalDuration = 2200; // Total loading animation scale runtime
+      let intervalTick = totalDuration / logLines.length;
+
+      const bootLoop = setInterval(() => {
+        if (currentStep < logLines.length) {
+          const p = document.createElement("p");
+          p.textContent = `> ${logLines[currentStep]}`;
+          logContainer.appendChild(p);
+          logContainer.scrollTop = logContainer.scrollHeight;
+
+          currentStep++;
+          let percentComplete = Math.floor((currentStep / logLines.length) * 100);
+          progressFill.style.width = `${percentComplete}%`;
+          percentageText.textContent = `${percentComplete.toString().padStart(2, '0')}%`;
+        } else {
+          clearInterval(bootLoop);
+          setTimeout(() => {
+            document.getElementById("loading-screen").classList.add("hidden");
+            document.getElementById("dashboard-root").classList.remove("hidden");
+
+            SystemState.isBootstrapped = true;
+            initializeDashboardModules();
+          }, 300);
+        }
+      }, intervalTick);
+    }
+
+    /**
+     * Universal Time Keeping Interface (Aerospace UTC Clock Standard)
+     */
+    function startSystemClockLoop() {
+      const clockEl = document.getElementById("utc-clock");
+      setInterval(() => {
+        const now = new Date();
+        const utcStr = now.toISOString().replace('T', ' ').substring(0, 19) + " UTC";
+        clockEl.textContent = utcStr;
+      }, 1000);
+    }
+
+    /**
+     * Master core orchestrator running engine frameworks
+     */
+    function initializeDashboardModules() {
+      initApiTelemetryPipeline();
+      init3DSpatialEngine();
+      initAnalyticsCharts();
+      bindInterfaceControls();
+      updateStaticMetricDisplays();
+    }
+
+    function updateStaticMetricDisplays() {
+      document.getElementById("metric-satellites").textContent = SystemState.metrics.satellites.toLocaleString();
+      document.getElementById("metric-debris").textContent = SystemState.metrics.debris.toLocaleString();
+      document.getElementById("metric-high-risk").textContent = SystemState.metrics.highRisk;
+      document.getElementById("metric-predictions").textContent = SystemState.metrics.predictionsToday;
+      document.getElementById("metric-accuracy").textContent = `${SystemState.metrics.aiAccuracy}%`;
+      document.getElementById("metric-avg-prob").textContent = SystemState.metrics.avgProb.toFixed(5);
+    }
+
+    function bindInterfaceControls() {
+      const btnToggleOrbits = document.getElementById("btn-toggle-orbits");
+      if (btnToggleOrbits) {
+        btnToggleOrbits.addEventListener("click", () => {
+          SystemState.uiState.orbitsVisible = !SystemState.uiState.orbitsVisible;
+          btnToggleOrbits.classList.toggle("active", SystemState.uiState.orbitsVisible);
+          btnToggleOrbits.textContent = SystemState.uiState.orbitsVisible ? "ORBITS ON" : "ORBITS OFF";
+
+          if (window.SpaceEngine && typeof window.SpaceEngine.toggleOrbitsVisibility === 'function') {
+            window.SpaceEngine.toggleOrbitsVisibility(SystemState.uiState.orbitsVisible);
+          }
+        });
+      }
+    }
+
+    /* ==========================================================================
+       THREEJS SPACE SITUATIONAL AWARENESS ORBITAL ENGINE
+       ========================================================================== */
+    function init3DSpatialEngine() {
+      const container = document.getElementById("canvas-wrapper");
+      if (!container) return;
+
+      let scene, camera, renderer, globe, stars, orbitLinesGroup;
+      let width = container.clientWidth;
+      let height = container.clientHeight || 450;
+
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x030712, 0.0015);
+
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+      camera.position.set(0, 0, 180);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0x1e293b, 1.5);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0x00d4ff, 2.5);
+      directionalLight.position.set(5, 3, 5);
+      scene.add(directionalLight);
+
+      // Procedural Wireframe Vector Globe Layout
+      const globeGeo = new THREE.SphereGeometry(40, 32, 32);
+      const globeMat = new THREE.MeshPhongMaterial({
+        color: 0x0f172a,
+        emissive: 0x0b1329,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.8
+      });
+      globe = new THREE.Mesh(globeGeo, globeMat);
+      scene.add(globe);
+
+      const atmosGeo = new THREE.SphereGeometry(40.5, 32, 32);
+      const atmosMat = new THREE.MeshBasicMaterial({
+        color: 0x3b82f6,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.15
+      });
+      const atmosphericShield = new THREE.Mesh(atmosGeo, atmosMat);
+      scene.add(atmosphericShield);
+
+      // Deep Space Particle Constellation Generation (Stars)
+      const starGeo = new THREE.BufferGeometry();
+      const starCount = 1500;
+      const starPositions = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount * 3; i++) {
+        starPositions[i] = (Math.random() - 0.5) * 500;
+      }
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+      const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true, opacity: 0.6 });
+      stars = new THREE.Points(starGeo, starMat);
+      scene.add(stars);
+
+      orbitLinesGroup = new THREE.Group();
+      scene.add(orbitLinesGroup);
+
+      generateProceduralOrbitsAndObjects(orbitLinesGroup);
+
+      window.addEventListener('resize', () => {
+        if (!container.clientWidth) return;
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+      });
+
+      document.getElementById("btn-reset-cam").addEventListener("click", () => {
+        camera.position.set(0, 0, 180);
+        camera.lookAt(0, 0, 0);
+        scene.rotation.set(0, 0, 0);
+      });
+
+      // Drag to Rotate Interaction Layout
+      let isDragging = false;
+      let previousMousePosition = { x: 0, y: 0 };
+
+      container.addEventListener('mousedown', (e) => { isDragging = true; });
+      container.addEventListener('mousemove', (e) => {
+        const deltaMove = { x: e.offsetX - previousMousePosition.x, y: e.offsetY - previousMousePosition.y };
+        if (isDragging) {
+          scene.rotation.y += deltaMove.x * 0.005;
+          scene.rotation.x += deltaMove.y * 0.005;
+        }
+        previousMousePosition = { x: e.offsetX, y: e.offsetY };
+      });
+      window.addEventListener('mouseup', () => { isDragging = false; });
+
+      function animateFrame() {
+        requestAnimationFrame(animateFrame);
+
+        globe.rotation.y += 0.001;
+        atmosphericShield.rotation.y += 0.001;
+        orbitLinesGroup.rotation.y += 0.0008;
+        stars.rotation.y -= 0.0001;
+
+        renderer.render(scene, camera);
+      }
+
+      window.SpaceEngine = {
+        toggleOrbitsVisibility: (isVisible) => {
+          orbitLinesGroup.visible = isVisible;
+        }
+      };
+
+      animateFrame();
+    }
+
+    function generateProceduralOrbitsAndObjects(orbitGroup) {
+      const numObjects = 40;
+      for (let i = 0; i < numObjects; i++) {
+        const radius = 50 + Math.random() * 25;
+        const inclination = (Math.random() - 0.5) * Math.PI * 0.6;
+        const color = Math.random() > 0.45 ? 0x00d4ff : 0xef4444;
+
+        const curve = new THREE.EllipseCurve(0, 0, radius, radius, 0, 2 * Math.PI, false, 0);
+        const points = curve.getPoints(64);
+        const pathGeo = new THREE.BufferGeometry().setFromPoints(points);
+
+        const pathMat = new THREE.LineBasicMaterial({
+          color: color,
+          transparent: true,
+          opacity: color === 0xef4444 ? 0.35 : 0.15
+        });
+
+        const orbitLine = new THREE.LineLoop(pathGeo, pathMat);
+        orbitLine.rotation.x = Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+        orbitLine.rotation.y = inclination;
+
+        orbitGroup.add(orbitLine);
+      }
+    }
+
+    /* ==========================================================================
+       PLOTLY ANALYTICS & STATISTICAL INSIGHTS DATA DECK
+       ========================================================================== */
+    function initAnalyticsCharts() {
+      const layoutConfigDefaults = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#94A3B8', size: 10, family: 'monospace' },
+        margin: { t: 30, r: 15, l: 35, b: 30 },
+        showlegend: false,
+        xaxis: { gridcolor: 'rgba(255,255,255,0.05)', zeroline: false },
+        yaxis: { gridcolor: 'rgba(255,255,255,0.05)', zeroline: false }
+      };
+
+      const densityTrace = {
+        x: [200, 400, 600, 800, 1000, 1200, 1400, 1600, 2000],
+        y: [120, 450, 980, 2400, 1850, 920, 410, 200, 95],
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: '#00D4FF', shape: 'spline' },
+        marker: { color: '#3B82F6', size: 4 }
+      };
+
+      const densityLayout = Object.assign({}, layoutConfigDefaults, {
+        title: { text: 'DEBRIS DENSITY VS ALTITUDE (KM)', font: { color: '#00D4FF', size: 11 } }
+      });
+
+      Plotly.newPlot('chart-density', [densityTrace], densityLayout, { responsive: true, displayModeBar: false });
+
+      const probTrace = {
+        x: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'],
+        y: [2.1e-4, 4.3e-4, 8.9e-5, 1.2e-3, 5.4e-4, 3.1e-4],
+        type: 'bar',
+        marker: {
+          color: ['#3B82F6', '#3B82F6', '#22C55E', '#EF4444', '#F59E0B', '#3B82F6'],
+          opacity: 0.8
+        }
+      };
+
+      const probLayout = Object.assign({}, layoutConfigDefaults, {
+        title: { text: 'MAX CONJUNCTION PROBABILITY FLUX', font: { color: '#00D4FF', size: 11 } }
+      });
+
+      Plotly.newPlot('chart-probability', [probTrace], probLayout, { responsive: true, displayModeBar: false });
+    }
+
+    /* ==========================================================================
+       LIVE STREAM TELEMETRY PIPELINE (MOCK INFERENCE LOOP)
+       ========================================================================== */
+    function initApiTelemetryPipeline() {
+      const targetAssetsCatalog = [
+        { name: "ISS (ZARYA)", norad: "25544", country: "US/RUSSIA", launch: "1998-11-20", regime: "LEO", altitude: "418 x 422 km", velocity: "7.66 km/s", inc: "51.64°", period: "92.9 min", status: "OPERATIONAL" },
+        { name: "STARLINK-31042", norad: "58214", country: "US (SPACEX)", launch: "2024-02-11", regime: "LEO", altitude: "545 x 550 km", velocity: "7.59 km/s", inc: "53.05°", period: "95.2 min", status: "OPERATIONAL" },
+        { name: "ENVISAT", norad: "27386", country: "ESA", launch: "2002-03-01", regime: "LEO", altitude: "762 x 765 km", velocity: "7.45 km/s", inc: "98.44°", period: "100.1 min", status: "DEAD / DEBRIS" },
+        { name: "NOAA-19", norad: "33591", country: "US (NOAA)", launch: "2009-02-06", regime: "SSO", altitude: "845 x 861 km", velocity: "7.41 km/s", inc: "98.71°", period: "102.1 min", status: "MALFUNCTIONING" }
+      ];
+
+      const logMessagesPool = [
+        { text: "Conjunction detection scan step executed successfully on 14,000 targets.", level: "info" },
+        { text: "NORAD ID 43211 space junk fragments tracked intersecting LEO shell sector 4B.", level: "info" },
+        { text: "LSTM neural network generated updated state vectors for dead upper rocket stages.", level: "info" },
+        { text: "AI Core Prediction Warning: Probability escalation detected for target item.", level: "warn" },
+        { text: "ALERT: Calculated risk threshold exceeded close proximity intersection approach.", level: "danger" },
+        { text: "Maneuver optimization protocol computed trajectory delta corrections.", level: "success" }
+      ];
+
+      const loggerContainer = document.getElementById("terminal-stream");
+
+      function cycleTelemetryPayload() {
+        const randomAsset = targetAssetsCatalog[Math.floor(Math.random() * targetAssetsCatalog.length)];
+        SystemState.activeAsset = randomAsset;
+
+        document.getElementById("sat-name").textContent = randomAsset.name;
+        document.getElementById("sat-norad").textContent = randomAsset.norad;
+        document.getElementById("sat-country").textContent = randomAsset.country;
+        document.getElementById("sat-launch").textContent = randomAsset.launch;
+        document.getElementById("sat-regime").textContent = randomAsset.regime;
+        document.getElementById("sat-altitude").textContent = randomAsset.altitude;
+        document.getElementById("sat-velocity").textContent = randomAsset.velocity;
+        document.getElementById("sat-inc").textContent = randomAsset.inc;
+        document.getElementById("sat-period").textContent = randomAsset.period;
+
+        const statusEl = document.getElementById("sat-status");
+        statusEl.textContent = randomAsset.status;
+        if (randomAsset.status.includes("OPERATIONAL")) {
+          statusEl.style.borderColor = "var(--color-success)";
+          statusEl.style.color = "var(--color-success)";
+        } else {
+          statusEl.style.borderColor = "var(--color-danger)";
+          statusEl.style.color = "var(--color-danger)";
+        }
+
+        const simulatedProbVal = Math.random() * 0.08;
+        updateRiskCircularGauge(simulatedProbVal);
+
+        const randomLog = logMessagesPool[Math.floor(Math.random() * logMessagesPool.length)];
+        const logLine = document.createElement("div");
+        logLine.className = `log-line ${randomLog.level === 'warn' ? 'warn' : randomLog.level === 'danger' ? 'danger' : ''}`;
+
+        const timestamp = new Date().toISOString().substring(11, 19);
+        logLine.innerHTML = `<span class="log-time">[${timestamp}]</span> ${randomLog.text.replace("target item", randomAsset.name)}`;
+
+        loggerContainer.appendChild(logLine);
+        if (loggerContainer.children.length > 25) {
+          loggerContainer.removeChild(loggerContainer.firstChild);
+        }
+        loggerContainer.scrollTop = loggerContainer.scrollHeight;
+      }
+
+      cycleTelemetryPayload();
+      setInterval(cycleTelemetryPayload, 4000);
+    }
+
+    function updateRiskCircularGauge(probabilityValue) {
+      const gaugeFill = document.getElementById("gauge-fill");
+      const percentText = document.getElementById("gauge-val-percent");
+      const badge = document.getElementById("risk-severity-badge");
+
+      const formattedPercent = (probabilityValue * 100).toFixed(2);
+      percentText.textContent = `${formattedPercent}%`;
+
+      const circumference = 251.2;
+      const absoluteFactor = Math.min(Math.max(probabilityValue, 0), 1);
+      const offsetValue = circumference - (absoluteFactor * circumference);
+
+      gaugeFill.style.strokeDashoffset = offsetValue;
+
+      if (probabilityValue > 0.05) {
+        gaugeFill.style.stroke = "var(--color-danger)";
+        badge.textContent = "CRITICAL THREAT";
+        badge.className = "risk-badge status-indicator danger";
+
+        document.getElementById("maneuver-action").textContent = "PROGRADE ESCAPE BURN";
+        document.getElementById("maneuver-dv").textContent = "4.25 m/s";
+        document.getElementById("maneuver-fuel").textContent = "6.81 kg";
+      } else if (probabilityValue > 0.02) {
+        gaugeFill.style.stroke = "var(--color-warning)";
+        badge.textContent = "WARNING: HIGH RISK";
+        badge.className = "risk-badge status-indicator";
+        badge.style.color = "var(--color-warning)";
+        badge.style.borderColor = "var(--color-warning)";
+        badge.style.background = "rgba(245, 158, 11, 0.15)";
+
+        document.getElementById("maneuver-action").textContent = "ORBITAL PHASE ADJUST";
+        document.getElementById("maneuver-dv").textContent = "1.12 m/s";
+        document.getElementById("maneuver-fuel").textContent = "1.95 kg";
+      } else {
+        gaugeFill.style.stroke = "var(--color-success)";
+        badge.textContent = "NOMINAL TRACKING";
+        badge.className = "risk-badge status-indicator success";
+
+        document.getElementById("maneuver-action").textContent = "NO ACTION REQUIRED";
+        document.getElementById("maneuver-dv").textContent = "0.00 m/s";
+        document.getElementById("maneuver-fuel").textContent = "0.00 kg";
+      }
+    }
+  </script>
+</body>
+
+</html>

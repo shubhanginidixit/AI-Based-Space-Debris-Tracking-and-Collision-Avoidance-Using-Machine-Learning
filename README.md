@@ -1,414 +1,204 @@
-<div align="center">
+# AI-Based Space Debris Tracking and Collision Avoidance Using Machine Learning
 
-# 🛰️ AI-Based Space Debris Tracking & Collision Avoidance Using Machine Learning
+[![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.x-red?logo=pytorch)](https://pytorch.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.x-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### Intelligent Space Situational Awareness (SSA) Platform powered by Artificial Intelligence, Deep Learning, and Reinforcement Learning
-
-![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?logo=tensorflow)
-![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Status](https://img.shields.io/badge/Status-Under%20Development-orange)
-
-Predicting satellite trajectories, estimating collision risks, and recommending intelligent collision avoidance maneuvers using Artificial Intelligence.
-
-</div>
+> **Final Year Engineering Project** — An intelligent Space Situational Awareness (SSA) platform that loads real Space-Track GP orbital data, cleans it, performs EDA, engineers LSTM time-series features, predicts future satellite trajectories, detects conjunction candidates using a KD-Tree, estimates collision probability with Random Forest and XGBoost, serves predictions via a FastAPI REST API, and visualises everything in an animated interactive dashboard.
 
 ---
 
-# 🌍 Overview
+## 📐 Architecture
 
-As Earth's orbit becomes increasingly congested, **space debris** poses a serious threat to satellites, spacecraft, and future space missions.
-
-More than **34,000 tracked objects** and **millions of untracked debris fragments** travel at speeds exceeding **28,000 km/h**. Even a fragment as small as **1 cm** can severely damage or destroy an operational satellite.
-
-Traditional collision assessment techniques rely on numerical orbital propagation and computationally intensive Monte Carlo simulations, making real-time decision-making difficult.
-
-This project introduces an **AI-powered collision prediction system** that combines Machine Learning, Deep Learning, Orbital Mechanics, and Reinforcement Learning to improve prediction speed and enable intelligent maneuver planning.
-
----
-
-# 📑 Table of Contents
-
-- Overview
-- Problem Statement
-- Objectives
-- Features
-- System Architecture
-- Technology Stack
-- Machine Learning Pipeline
-- Datasets
-- Project Structure
-- Installation
-- Usage
-- Future Roadmap
-- Applications
-- Challenges
-- Contributors
-- License
-- Acknowledgements
-
----
-
-# 🚀 Problem Statement
-
-Current satellite conjunction assessment systems primarily use:
-
-- SGP4 Orbit Propagation
-- Monte Carlo Simulation
-- Covariance Analysis
-
-Although accurate, these approaches are:
-
-- Computationally expensive
-- Slow for large satellite constellations
-- Difficult to scale
-- Resource intensive
-
-The objective of this project is to develop an intelligent software platform capable of:
-
-- Predicting future satellite trajectories
-- Detecting possible conjunctions
-- Estimating collision probability
-- Recommending fuel-efficient avoidance maneuvers
-
----
-
-# 🎯 Objectives
-
-✅ Predict satellite trajectories using historical TLE data
-
-✅ Detect close approaches between satellites and debris
-
-✅ Replace expensive simulations with Machine Learning models
-
-✅ Optimize collision avoidance using Reinforcement Learning
-
-✅ Visualize satellites and debris in an interactive dashboard
-
----
-
-# ✨ Features
-
-## 🛰️ Orbit Prediction
-
-Predict future satellite positions using historical orbital data.
-
-### Models
-
-- LSTM
-- GRU
-- Transformer Networks
-
-Outputs
-
-- Position
-- Velocity
-- Future Orbit
-
----
-
-## ☄️ Conjunction Detection
-
-Efficiently detect close approaches between satellites and debris using spatial indexing.
-
-Algorithms
-
-- KD Tree
-- Ball Tree
-- Nearest Neighbor Search
-
----
-
-## 🎯 Collision Probability Prediction
-
-Estimate collision probability without expensive Monte Carlo simulations.
-
-Input Features
-
-- Relative Position
-- Relative Velocity
-- Orbital Parameters
-- Covariance Matrix
-- Time To Closest Approach (TCA)
-
-Models
-
-- Random Forest
-- XGBoost
-- Deep Neural Networks
-
-Output
-
-- Collision Probability (Pc)
-
----
-
-## 🤖 Reinforcement Learning Collision Avoidance
-
-Train an intelligent agent to recommend fuel-efficient avoidance maneuvers.
-
-Algorithms
-
-- PPO
-- DQN
-- SAC
-
-Optimization Goals
-
-- Avoid Collision
-- Minimize Fuel Usage
-- Maintain Orbit Stability
-
----
-
-## 🌍 Interactive Dashboard
-
-Features
-
-- 🌎 3D Earth Visualization
-- 🛰️ Live Satellite Tracking
-- ☄️ Debris Visualization
-- ⚠️ Collision Alerts
-- 📈 Risk Heatmaps
-- 📊 Prediction Analytics
-
----
-
-# 🏗️ System Architecture
-
-```text
-                  Space-Track
-                 CelesTrak TLE
-                       │
-                       ▼
-             Data Collection Module
-                       │
-                       ▼
-               Data Preprocessing
-                       │
-                       ▼
-            Orbit Prediction Model
-                       │
-                       ▼
-            Conjunction Screening
-                       │
-                       ▼
-        Collision Probability Model
-                       │
-                       ▼
-   Reinforcement Learning Planner
-                       │
-                       ▼
-         Interactive Dashboard
+```
+Raw CSV (Space-Track)
+      │
+      ▼
+ load_data.py  ──►  clean_data.py  ──►  feature_engineering.py
+                                               │
+                                               ▼
+                                        train_lstm.py (PyTorch LSTM)
+                                               │
+                                               ▼
+                                  conjunction_detection.py (KD-Tree)
+                                               │
+                                               ▼
+                                  collision_prediction.py (RF + XGBoost)
+                                               │
+                                               ▼
+                                     backend/main.py (FastAPI)
+                                               │
+                                               ▼
+                                    frontend/index.html (Dashboard)
 ```
 
 ---
 
-# ⚙️ Technology Stack
+## 📁 Project Structure
 
-| Category | Technologies |
-|-----------|--------------|
-| Language | Python |
-| Backend | FastAPI, Flask |
-| ML Frameworks | TensorFlow, PyTorch |
-| ML Libraries | Scikit-learn, XGBoost |
-| Data Processing | NumPy, Pandas, SciPy |
-| Visualization | Plotly, CesiumJS, Three.js |
-| Database | PostgreSQL, MongoDB |
-| Deployment | Docker, AWS, Google Cloud |
-
----
-
-# 🧠 Machine Learning Pipeline
-
-```text
-Historical TLE Data
-        │
-        ▼
-Data Cleaning
-        │
-        ▼
-Feature Engineering
-        │
-        ▼
-Orbit Prediction
-        │
-        ▼
-Conjunction Detection
-        │
-        ▼
-Collision Probability Prediction
-        │
-        ▼
-Reinforcement Learning
-        │
-        ▼
-Visualization Dashboard
 ```
-
----
-
-# 📂 Project Structure
-
-```text
-AI-Based-Space-Debris-Tracking-and-Collision-Avoidance/
-
-├── backend/
-├── frontend/
-├── models/
-│   ├── orbit_prediction/
-│   ├── collision_prediction/
-│   └── reinforcement_learning/
-│
+AI-Based-Space-Debris-Tracking/
 ├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── tle/
-│
+│   ├── raw/                        # Original Space-Track CSV
+│   └── processed/                  # Cleaned CSV, X.npy, y.npy
 ├── notebooks/
+│   └── 01_EDA.ipynb                # Exploratory Data Analysis
+├── scripts/
+│   ├── load_data.py                # Module 2: Data Loading
+│   ├── clean_data.py               # Module 3: Data Cleaning
+│   ├── feature_engineering.py      # Module 5: Feature Engineering
+│   ├── train_lstm.py               # Module 6: LSTM Orbit Prediction
+│   ├── conjunction_detection.py    # Module 7: KD-Tree Conjunction Detection
+│   └── collision_prediction.py     # Module 8: Collision Probability (RF + XGBoost)
+├── models/
+│   ├── lstm_orbit_model.pth        # Trained PyTorch LSTM
+│   ├── scaler.pkl                  # MinMaxScaler for features
+│   ├── collision_rf_model.pkl      # Random Forest model
+│   └── collision_xgb_model.pkl     # XGBoost model
+├── backend/
+│   └── main.py                     # Module 9: FastAPI REST API
+├── frontend/
+│   └── index.html                  # Module 10: Interactive Dashboard
 ├── visualization/
+│   ├── lstm_training_history.png
+│   └── collision_feature_importance.png
 ├── tests/
-├── utils/
+├── setup.cfg                       # Flake8 configuration
 ├── requirements.txt
-├── main.py
+├── main.py                         # Pipeline orchestrator
 └── README.md
 ```
 
 ---
 
-# 📊 Datasets
+## 🧠 Modules
 
-| Dataset | Description |
-|----------|-------------|
-| Space-Track | Historical TLE Data |
-| CelesTrak | Public Satellite Catalog |
-| ESA DISCOS | Space Object Database |
-| NASA CARA | Conjunction Assessment Data |
+| # | Module | File | Description |
+|---|--------|------|-------------|
+| 1 | Project Initialisation | — | Folder structure, requirements |
+| 2 | Data Loading | `load_data.py` | Load raw CSV, inspect dataset |
+| 3 | Data Cleaning | `clean_data.py` | Deduplicate, select 14 features, parse EPOCH |
+| 4 | EDA | `01_EDA.ipynb` | Histograms, scatter plots, correlation matrix |
+| 5 | Feature Engineering | `feature_engineering.py` | Temporal augmentation, normalisation, LSTM sequences |
+| 6 | LSTM Training | `train_lstm.py` | 2-layer PyTorch LSTM, MAE 0.0002 |
+| 7 | Conjunction Detection | `conjunction_detection.py` | Keplerian → Cartesian, KD-Tree nearest-neighbour |
+| 8 | Collision Probability | `collision_prediction.py` | Random Forest + XGBoost, physics-grounded labels |
+| 9 | FastAPI Backend | `backend/main.py` | REST API: `/`, `/health`, `/satellites`, `/predict` |
+| 10 | Dashboard | `frontend/index.html` | Animated solar system + satellite orbits + alerts |
+| 11 | Documentation | `README.md` | This file |
 
 ---
 
-# 🛠 Installation
+## 🚀 Quick Start
 
-Clone the repository
-
-```bash
-git clone https://github.com/<YOUR_USERNAME>/AI-Based-Space-Debris-Tracking-and-Collision-Avoidance-Using-Machine-Learning.git
-```
-
-Move into the project directory
-
-```bash
-cd AI-Based-Space-Debris-Tracking-and-Collision-Avoidance-Using-Machine-Learning
-```
-
-Create a virtual environment
-
-```bash
-python -m venv venv
-```
-
-Activate the environment
-
-Windows
-
-```bash
-venv\Scripts\activate
-```
-
-Linux / macOS
-
-```bash
-source venv/bin/activate
-```
-
-Install dependencies
+### 1. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Run the application
+### 2. Place raw data
+
+Copy your Space-Track CSV into:
+```
+data/raw/space_track_raw.csv
+```
+
+### 3. Run the full pipeline
 
 ```bash
 python main.py
 ```
 
----
+Or run each module individually:
 
-# 📈 Expected Outcomes
+```bash
+cd scripts
+python load_data.py
+python clean_data.py
+python feature_engineering.py
+python train_lstm.py
+python conjunction_detection.py
+python collision_prediction.py
+```
 
-- Faster trajectory prediction
-- Scalable conjunction detection
-- Reduced computation time
-- Intelligent collision avoidance
-- Interactive visualization dashboard
+### 4. Launch the API
 
----
+```bash
+uvicorn backend.main:app --reload
+```
 
-# 🚀 Future Roadmap
+API docs available at: `http://localhost:8000/docs`
 
-- Physics-Informed Neural Networks
-- Graph Neural Networks
-- Real-Time Space Weather Integration
-- Multi-Agent Reinforcement Learning
-- Explainable AI
-- Digital Twin of Earth Orbit
-- Live Satellite Streaming
-- Cloud Deployment
+### 5. Open the Dashboard
 
----
-
-# 🌍 Applications
-
-- Space Situational Awareness (SSA)
-- Satellite Operators
-- Space Agencies
-- Aerospace Research
-- Commercial Space Companies
-- Defense Systems
-- University Research
+Open `frontend/index.html` in any modern browser.
 
 ---
 
-# ⚠️ Challenges
+## 🔌 API Reference
 
-- Sparse collision data
-- Noisy TLE measurements
-- Orbital uncertainty
-- Limited labeled datasets
-- High computational complexity
+### `GET /`
+Welcome message.
 
----
+### `GET /health`
+Returns model load status.
 
-# 🤝 Contributors
+### `GET /satellites?limit=50`
+Returns satellite records from the cleaned dataset.
 
-**Shubhangini Dixit**
-
-Feel free to contribute by opening Issues or Pull Requests.
-
----
-
-# 📜 License
-
-This project is licensed under the **MIT License**.
-
----
-
-# 🙏 Acknowledgements
-
-Special thanks to:
-
-- NASA
-- ESA
-- Space-Track
-- CelesTrak
-- LeoLabs
-- ExoAnalytic Solutions
+### `POST /predict`
+```json
+{
+  "relative_position_km": 5.0,
+  "relative_velocity_km_s": 12.0,
+  "time_to_closest_approach_s": 120
+}
+```
+Returns:
+```json
+{
+  "collision_probability_rf": 0.9812,
+  "collision_probability_xgb": 0.9740,
+  "risk_level": "HIGH"
+}
+```
 
 ---
 
-<div align="center">
+## 📊 Model Performance
 
-</div>
+| Model | Metric | Value |
+|-------|--------|-------|
+| LSTM (PyTorch) | Test MAE | 0.0002 |
+| Random Forest | Test MAE | 0.0019 |
+| XGBoost | Test MAE | 0.0020 |
+
+---
+
+## 🛠️ Tech Stack
+
+- **Data**: pandas, numpy, scikit-learn
+- **Deep Learning**: PyTorch (LSTM)
+- **Machine Learning**: scikit-learn (Random Forest), XGBoost
+- **Orbital Mechanics**: scipy (KD-Tree), numpy (Keplerian transforms)
+- **API**: FastAPI, Uvicorn, Pydantic
+- **Visualisation**: matplotlib, seaborn, HTML5 Canvas (dashboard)
+- **Code Quality**: black, flake8
+
+---
+
+## 📋 Coding Standards
+
+- PEP 8 compliant (formatted with `black`, linted with `flake8`)
+- Google-style docstrings throughout
+- Full type hints on all public functions
+- Modular architecture — each script is independently runnable
+- Exception handling with informative logging
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
