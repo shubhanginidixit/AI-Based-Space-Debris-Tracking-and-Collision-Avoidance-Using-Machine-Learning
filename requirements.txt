@@ -1,0 +1,27 @@
+# Data Manipulation & Analysis
+pandas
+numpy
+
+# Machine Learning & Deep Learning
+scikit-learn
+xgboost
+tensorflow
+
+# Math & Algorithms
+scipy
+
+# Backend API
+fastapi
+uvicorn
+pydantic
+
+# Jupyter Notebook & Data Visualization
+notebook
+matplotlib
+seaborn
+plotly
+
+# Code Quality & Testing
+pytest
+black
+flake8
