@@ -1,8 +1,8 @@
 """
 Module 2: Data Loading
 
-This module provides functionality to safely load raw Space-Track orbital data
-from a CSV file and perform initial basic inspection (shape, head, columns, missing values).
+This module safely loads raw Space-Track orbital data from a CSV file
+and performs initial inspection (shape, head, columns, missing values).
 """
 
 import os
@@ -10,7 +10,8 @@ import pandas as pd
 import logging
 
 # Set up logging for basic output
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
 
 def load_space_track_data(filepath: str) -> pd.DataFrame:
     """
@@ -21,7 +22,8 @@ def load_space_track_data(filepath: str) -> pd.DataFrame:
 
     Returns:
         pd.DataFrame: A pandas DataFrame containing the loaded data.
-                      Returns an empty DataFrame if the file is not found or cannot be read.
+            Returns an empty DataFrame if the file is not found
+            or cannot be read.
     """
     try:
         logging.info(f"Attempting to load data from {filepath}...")
@@ -37,6 +39,7 @@ def load_space_track_data(filepath: str) -> pd.DataFrame:
     except Exception as e:
         logging.error(f"An unexpected error occurred while loading the data: {e}")
         return pd.DataFrame()
+
 
 def inspect_data(df: pd.DataFrame) -> None:
     """
@@ -75,14 +78,15 @@ def inspect_data(df: pd.DataFrame) -> None:
     print("=" * 50)
     print(df.isnull().sum(), "\n")
 
+
 if __name__ == "__main__":
     # Define the path to the raw data
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(current_dir)
     data_path = os.path.join(project_root, "data", "raw", "space_track_raw.csv")
-    
+
     # Load the data
     orbit_df = load_space_track_data(data_path)
-    
+
     # Inspect the data
     inspect_data(orbit_df)
