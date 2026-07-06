@@ -83,18 +83,24 @@ def engineer_features(data_path: str, seq_length: int = 5) -> None:
         logging.warning(f"Max observations per satellite ({max_obs}) <= seq_length ({seq_length}).")
         logging.info("Augmenting data to simulate time-series trajectories...")
         augmented_dfs = []
-        # Generate enough time steps to satisfy sequence length + target
-        for i in range(seq_length + 5): 
-            df_copy = df.copy()
-            # Shift the EPOCH forward by days
-            df_copy['EPOCH'] = df_copy['EPOCH'] + pd.Timedelta(days=i)
-            # Apply small physical noise to features to simulate orbital perturbations
+        
+        # Base dataframe is day 0
+        current_df = df.copy()
+        augmented_dfs.append(current_df)
+        
+        # Generate enough time steps sequentially to satisfy sequence length + target
+        for i in range(1, seq_length + 5): 
+            next_df = current_df.copy()
+            # Shift the EPOCH forward by 1 day relative to the previous day
+            next_df['EPOCH'] = next_df['EPOCH'] + pd.Timedelta(days=1)
+            # Apply small physical cumulative noise to features
             for feat in features:
-                # Add 0.1% random noise
-                noise = np.random.normal(0, 0.001, len(df))
-                # For safety, avoid negative eccentricity if close to 0
-                df_copy[feat] = np.abs(df_copy[feat] * (1 + noise))
-            augmented_dfs.append(df_copy)
+                # Add 0.1% random cumulative noise
+                noise = np.random.normal(0, 0.001, len(next_df))
+                next_df[feat] = np.abs(next_df[feat] * (1 + noise))
+            
+            augmented_dfs.append(next_df)
+            current_df = next_df  # update the baseline for the next day
             
         df = pd.concat(augmented_dfs).sort_values(by=['NORAD_CAT_ID', 'EPOCH']).reset_index(drop=True)
         logging.info(f"Data augmentation complete. New dataset shape: {df.shape}")
