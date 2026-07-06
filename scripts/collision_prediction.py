@@ -29,14 +29,9 @@ import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import (
-    classification_report,
-    mean_absolute_error,
-    roc_auc_score,
-)
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error
 import xgboost as xgb
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
